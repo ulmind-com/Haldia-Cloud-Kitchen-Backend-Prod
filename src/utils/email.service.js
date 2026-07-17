@@ -61,6 +61,23 @@ const sendWelcomeEmail = async (user) => {
   });
 };
 
+// ── Signup OTP verification email ──
+const sendOtpEmail = async (email, otp) => {
+  await sendEmail(email, `Your verification code is ${otp}`, 'otp', {
+    otp,
+    year: new Date().getFullYear(),
+  });
+};
+
+// ── Forgot-password reset link email ──
+const sendPasswordResetEmail = async (user, resetUrl) => {
+  await sendEmail(user.email, 'Reset your password 🔐', 'reset_password', {
+    name: user.name,
+    resetUrl,
+    year: new Date().getFullYear(),
+  });
+};
+
 const sendCouponBroadcast = async (user, coupon) => {
   const restaurant = await Restaurant.findOne();
 
@@ -287,6 +304,8 @@ const sendOrderCancelledEmail = async (order, user, reason = 'Administrative Act
 
 module.exports = {
   sendWelcomeEmail,
+  sendOtpEmail,
+  sendPasswordResetEmail,
   sendCouponBroadcast,
   sendOrderStatusEmail,
   sendOrderDeliveredWithInvoice,

@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { registerUser, authUser } = require('../controllers/authController');
+const {
+    registerUser,
+    authUser,
+    sendSignupOtp,
+    verifySignupOtp,
+    forgotPassword,
+    resetPassword,
+} = require('../controllers/authController');
 
 const {
     registerValidationRules,
@@ -86,5 +93,14 @@ router.post('/register', registerValidationRules(), validate, registerUser);
  *         description: Invalid email or password
  */
 router.post('/login', authUser);
+
+// ── OTP-verified signup flow ──
+// Step 1: request an email OTP; Step 2: verify it for a signup token; then /register.
+router.post('/send-otp', sendSignupOtp);
+router.post('/verify-otp', verifySignupOtp);
+
+// ── Forgot / reset password flow ──
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;
