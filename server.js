@@ -16,8 +16,10 @@ if (process.env.NODE_ENV !== 'test') {
         initRestaurantCron();
 
         // Initialize WhatsApp Service
-        const whatsappService = require('./src/services/whatsappService');
-        whatsappService.initialize();
+        // ── DISABLED: whatsapp-web.js + puppeteer consumes too much memory on hosting.
+        // Re-enable by uncommenting the two lines below (needs Chrome/Docker runtime).
+        // const whatsappService = require('./src/services/whatsappService');
+        // whatsappService.initialize();
     });
 }
 

@@ -1111,7 +1111,7 @@ const updateOrderStatus = async (req, res, next) => {
 
             if (populatedOrder && populatedOrder.customer) {
                 const { sendOrderStatusEmail, sendOrderDeliveredWithInvoice, sendOrderCancelledEmail } = require('../utils/email.service');
-                const whatsappService = require('../services/whatsappService');
+                // const whatsappService = require('../services/whatsappService'); // DISABLED to save memory
 
                 // Send Email & WhatsApp in parallel
                 // We use Promise.allSettled to ensure one failure doesn't stop the other
@@ -1122,9 +1122,9 @@ const updateOrderStatus = async (req, res, next) => {
                 const mobile = populatedOrder.customer.mobile;
                 console.log(`[Notification] Preparing WhatsApp for Order #${populatedOrder.customId}, Mobile: ${mobile}, Status: ${newStatus}`);
 
-                if (mobile) {
-                    tasks.push(whatsappService.sendStatusUpdate(mobile, populatedOrder, newStatus));
-                }
+                // if (mobile) {
+                //     tasks.push(whatsappService.sendStatusUpdate(mobile, populatedOrder, newStatus)); // DISABLED
+                // }
 
                 if (newStatus === 'DELIVERED') {
                     // Generate PDF Buffer ONCE
@@ -1140,9 +1140,10 @@ const updateOrderStatus = async (req, res, next) => {
                             tasks.push(sendOrderDeliveredWithInvoice(populatedOrder, populatedOrder.customer, pdfBuffer));
 
                             // Send WhatsApp with PDF
-                            if (mobile) {
-                                tasks.push(whatsappService.sendInvoice(mobile, populatedOrder, pdfBuffer));
-                            }
+                            // DISABLED to save memory
+                            // if (mobile) {
+                            //     tasks.push(whatsappService.sendInvoice(mobile, populatedOrder, pdfBuffer));
+                            // }
                         } catch (err) {
                             console.error('[Notification] PDF Generation Failed:', err);
                         }
