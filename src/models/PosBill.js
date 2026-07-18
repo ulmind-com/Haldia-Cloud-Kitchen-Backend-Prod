@@ -53,6 +53,15 @@ const posBillSchema = new mongoose.Schema(
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },   // who generated the bill
         settledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },   // who settled it
         settledAt: { type: Date, default: null },
+
+        // Deletion requires admin approval when requested by a Manager.
+        deleteRequest: {
+            requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            requestedByName: String,
+            requestedAt: Date,
+            reason: String,
+            status: { type: String, enum: ['pending', 'rejected'], default: undefined },
+        },
     },
     { timestamps: true }
 );

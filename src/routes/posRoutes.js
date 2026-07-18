@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, staff } = require('../middleware/authMiddleware');
+const { protect, staff, admin } = require('../middleware/authMiddleware');
 const {
     getCategories,
     createCategory,
@@ -24,6 +24,9 @@ const {
     getBills,
     getBillById,
     settleBill,
+    deleteBill,
+    requestBillDelete,
+    rejectBillDelete,
 } = require('../controllers/billController');
 
 // All POS routes require an authenticated staff member (Admin or Manager).
@@ -61,5 +64,9 @@ router.route('/bills')
     .post(generateBill);
 router.get('/bills/:id', getBillById);
 router.put('/bills/:id/settle', settleBill);
+// Any staff can request deletion; only an admin can hard-delete or reject.
+router.post('/bills/:id/request-delete', requestBillDelete);
+router.delete('/bills/:id', admin, deleteBill);
+router.put('/bills/:id/reject-delete', admin, rejectBillDelete);
 
 module.exports = router;

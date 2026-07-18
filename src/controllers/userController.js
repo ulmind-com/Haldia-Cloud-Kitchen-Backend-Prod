@@ -131,13 +131,60 @@ const getUserById = async (req, res, next) => {
 // @access  Private/Admin
 const deleteUser = async (req, res, next) => {
     try {
-        const user = await User.findOneAndDelete(resolveId(req.params.id));
-        if (user) {
-            res.json({ message: 'User removed' });
-        } else {
+        const user = await User.findOne(resolveId(req.params.id));
+        if (!user) {
             res.status(404);
             throw new Error('User not found');
         }
+        // Protect the admin account: never let the last admin be removed.
+        if (user.role === 'Admin') {
+            const adminCount = await User.countDocuments({ role: 'Admin' });
+            if (adminCount <= 1) {
+                res.status(400);
+                throw new Error('Cannot delete the only admin account.');
+            }
+        }
+        await user.deleteOne();
+        res.json({ message: 'User removed' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Create a staff user (Manager/Admin) — no OTP, admin only
+// @route   POST /api/users
+// @access  Private/Admin
+const createStaffUser = async (req, res, next) => {
+    try {
+        const { name, password, mobile, role } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+
+        if (!name || !email || !password || !mobile) {
+            res.status(400);
+            throw new Error('Name, email, password and mobile are all required');
+        }
+        if (String(password).length < 6) {
+            res.status(400);
+            throw new Error('Password must be at least 6 characters');
+        }
+        const finalRole = ['Manager', 'Admin', 'Customer'].includes(role) ? role : 'Manager';
+
+        const exists = await User.findOne({ email });
+        if (exists) {
+            res.status(400);
+            throw new Error('A user with this email already exists');
+        }
+
+        const user = await User.create({ name, email, password, mobile, role: finalRole });
+        res.status(201).json({
+            _id: user._id,
+            customId: user.customId,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            mobile: user.mobile,
+            isActive: user.isActive,
+        });
     } catch (error) {
         next(error);
     }
@@ -184,4 +231,5 @@ module.exports = {
     getUserById,
     deleteUser,
     updateUser,
+    createStaffUser,
 };

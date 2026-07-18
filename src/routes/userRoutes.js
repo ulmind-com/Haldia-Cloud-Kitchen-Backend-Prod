@@ -7,6 +7,7 @@ const {
     getUserById,
     updateUser,
     deleteUser,
+    createStaffUser,
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -105,7 +106,9 @@ router
  *       403:
  *         description: Not authorized as admin
  */
-router.route('/').get(protect, admin, getUsers);
+router.route('/')
+    .get(protect, admin, getUsers)
+    .post(protect, admin, createStaffUser);
 
 /**
  * @swagger
