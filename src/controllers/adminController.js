@@ -100,6 +100,15 @@ const getDashboardStats = async (req, res, next) => {
         // 3. Total Orders Count (Non-cancelled)
         const totalOrders = await Order.countDocuments({ orderStatus: { $ne: 'CANCELLED' } });
 
+        // 3b. Settled offline POS bills (new POS system) — add to revenue for consistency.
+        const PosBill = require('../models/PosBill');
+        const [posBillTotalAgg, posBillTodayAgg] = await Promise.all([
+            PosBill.aggregate([{ $match: { status: 'settled' } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+            PosBill.aggregate([{ $match: { status: 'settled', settledAt: { $gte: startToday, $lte: endToday } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+        ]);
+        const posBillTotal = posBillTotalAgg[0] ? posBillTotalAgg[0].total : 0;
+        const posBillToday = posBillTodayAgg[0] ? posBillTodayAgg[0].total : 0;
+
         // 4. Top Selling Items
         const topSellingItems = await Order.aggregate([
             { $match: { orderStatus: { $ne: 'CANCELLED' } } },
@@ -137,8 +146,8 @@ const getDashboardStats = async (req, res, next) => {
             .populate('customer', 'name');
 
         res.json({
-            totalRevenue: revenue[0] ? revenue[0].totalRevenue : 0,
-            todaysRevenue: todaysRevenueAgg[0] ? todaysRevenueAgg[0].revenue : 0,
+            totalRevenue: (revenue[0] ? revenue[0].totalRevenue : 0) + posBillTotal,
+            todaysRevenue: (todaysRevenueAgg[0] ? todaysRevenueAgg[0].revenue : 0) + posBillToday,
             totalOrders,
             todaysOrders: todaysOrdersCount,
             topSellingItems,
@@ -253,6 +262,14 @@ const getAnalytics = async (req, res, next) => {
             orderStatus: { $ne: 'CANCELLED' }
         });
 
+        // 2b. Settled offline POS bills in range — add to revenue for consistency.
+        const PosBillAn = require('../models/PosBill');
+        const posBillRangeAgg = await PosBillAn.aggregate([
+            { $match: { status: 'settled', settledAt: { $gte: start, $lte: end } } },
+            { $group: { _id: null, total: { $sum: '$total' } } },
+        ]);
+        const posBillRange = posBillRangeAgg[0] ? posBillRangeAgg[0].total : 0;
+
         // 3. New Signups (Details)
         const newUsers = await User.find({
             createdAt: { $gte: start, $lte: end },
@@ -322,7 +339,7 @@ const getAnalytics = async (req, res, next) => {
 
         res.json({
             period: { startDate: start, endDate: end },
-            revenue: revenueStats[0] ? revenueStats[0].totalRevenue : 0,
+            revenue: (revenueStats[0] ? revenueStats[0].totalRevenue : 0) + posBillRange,
             paidOrdersCount: revenueStats[0] ? revenueStats[0].count : 0,
             totalOrders,
             newUsersCount: newUsers.length,

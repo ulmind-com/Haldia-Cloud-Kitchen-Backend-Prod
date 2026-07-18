@@ -166,4 +166,65 @@ const emailReport = async (req, res, next) => {
     }
 };
 
-module.exports = { getReport, emailReport };
+// Consistent dashboard summary: online vs offline vs combined, with
+// per-channel top items and a settled-bill feed. Revenue rules match the
+// main dashboard (non-cancelled, PAID or DELIVERED for online orders).
+const getPosDashboard = async (req, res, next) => {
+    try {
+        const { from, to } = resolveRange(req.query.from, req.query.to);
+
+        // Online = app/delivery orders that count as revenue.
+        const onlineOrders = await Order.find({
+            orderType: { $ne: 'POS' },
+            orderStatus: { $ne: 'CANCELLED' },
+            $or: [{ paymentStatus: 'PAID' }, { orderStatus: 'DELIVERED' }],
+            createdAt: { $gte: from, $lte: to },
+        }).populate('items.product', 'name').select('finalAmount items');
+
+        // Offline = legacy POS orders + new settled bills.
+        const posOrders = await Order.find({
+            orderType: 'POS',
+            orderStatus: { $ne: 'CANCELLED' },
+            createdAt: { $gte: from, $lte: to },
+        }).populate('items.product', 'name').select('finalAmount items customId paymentMethod customerName createdAt');
+
+        const bills = await PosBill.find({ status: 'settled', settledAt: { $gte: from, $lte: to } })
+            .populate('settledBy', 'name');
+
+        const sum = (arr, f) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+        const onlineRevenue = sum(onlineOrders, (o) => o.finalAmount);
+        const offlineRevenue = sum(posOrders, (o) => o.finalAmount) + sum(bills, (b) => b.total);
+
+        // Aggregate top items per channel.
+        const addTo = (map, name, qty, amount) => {
+            if (!map[name]) map[name] = { quantity: 0, amount: 0 };
+            map[name].quantity += qty;
+            map[name].amount += amount;
+        };
+        const onlineMap = {}, offlineMap = {};
+        onlineOrders.forEach((o) => o.items.forEach((it) => addTo(onlineMap, it.product?.name || 'Item', it.quantity || 0, (it.price || 0) * (it.quantity || 0))));
+        posOrders.forEach((o) => o.items.forEach((it) => addTo(offlineMap, it.product?.name || 'Item', it.quantity || 0, (it.price || 0) * (it.quantity || 0))));
+        bills.forEach((b) => b.items.forEach((it) => addTo(offlineMap, it.name || 'Item', it.quantity || 0, (it.price || 0) * (it.quantity || 0))));
+
+        const combinedMap = {};
+        [onlineMap, offlineMap].forEach((m) => Object.entries(m).forEach(([n, v]) => addTo(combinedMap, n, v.quantity, v.amount)));
+
+        const toTop = (map) => Object.entries(map).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.quantity - a.quantity).slice(0, 8);
+
+        // Unified settled-bill feed (new bills + legacy POS orders).
+        const billFeed = [
+            ...bills.map((b) => ({ ref: b.billNumber, table: b.tableName || '—', when: b.settledAt, payment: b.paymentMethod, by: b.settledBy?.name || '—', amount: b.total, source: 'POS' })),
+            ...posOrders.map((o) => ({ ref: o.customId, table: '—', when: o.createdAt, payment: o.paymentMethod, by: o.customerName || 'Walk-in', amount: o.finalAmount, source: 'Legacy' })),
+        ].sort((a, b) => new Date(b.when) - new Date(a.when));
+
+        res.json({
+            online: { revenue: Math.round(onlineRevenue * 100) / 100, orders: onlineOrders.length, topItems: toTop(onlineMap) },
+            offline: { revenue: Math.round(offlineRevenue * 100) / 100, count: posOrders.length + bills.length, topItems: toTop(offlineMap), bills: billFeed },
+            combined: { revenue: Math.round((onlineRevenue + offlineRevenue) * 100) / 100, topItems: toTop(combinedMap) },
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { getReport, emailReport, getPosDashboard };
