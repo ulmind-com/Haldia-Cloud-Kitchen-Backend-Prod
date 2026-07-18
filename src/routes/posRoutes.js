@@ -19,6 +19,12 @@ const {
     updateKot,
     deleteKot,
 } = require('../controllers/kotController');
+const {
+    generateBill,
+    getBills,
+    getBillById,
+    settleBill,
+} = require('../controllers/billController');
 
 // All POS routes require an authenticated staff member (Admin or Manager).
 router.use(protect, staff);
@@ -48,5 +54,12 @@ router.route('/kots/:id')
     .get(getKotById)
     .put(updateKot)
     .delete(deleteKot);
+
+// ── Bills (generate + settlement) ──
+router.route('/bills')
+    .get(getBills)
+    .post(generateBill);
+router.get('/bills/:id', getBillById);
+router.put('/bills/:id/settle', settleBill);
 
 module.exports = router;
