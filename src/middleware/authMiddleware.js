@@ -39,4 +39,14 @@ const admin = (req, res, next) => {
     }
 };
 
-module.exports = { protect, admin };
+// Allows both Admin and Manager (used for POS / offline operations).
+const staff = (req, res, next) => {
+    if (req.user && (req.user.role === 'Admin' || req.user.role === 'Manager')) {
+        next();
+    } else {
+        res.status(401);
+        throw new Error('Not authorized. Staff access required.');
+    }
+};
+
+module.exports = { protect, admin, staff };
