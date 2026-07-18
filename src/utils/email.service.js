@@ -69,6 +69,28 @@ const sendOtpEmail = async (email, otp) => {
   });
 };
 
+// ── Generic raw-HTML email (used for reports, etc.) ──
+const sendRawEmail = async (to, subject, html) => {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+      to,
+      subject,
+      html,
+    });
+    if (error) {
+      console.error(`Error sending raw email to ${to}:`, error);
+      throw new Error(error.message || 'Email send failed');
+    }
+    console.log(`Raw email '${subject}' sent to ${to}. Resend ID: ${data?.id}`);
+    return data;
+  } catch (err) {
+    console.error('sendRawEmail failed:', err);
+    throw err;
+  }
+};
+
 // ── Forgot-password reset link email ──
 const sendPasswordResetEmail = async (user, resetUrl) => {
   await sendEmail(user.email, 'Reset your password 🔐', 'reset_password', {
@@ -306,6 +328,7 @@ module.exports = {
   sendWelcomeEmail,
   sendOtpEmail,
   sendPasswordResetEmail,
+  sendRawEmail,
   sendCouponBroadcast,
   sendOrderStatusEmail,
   sendOrderDeliveredWithInvoice,

@@ -28,6 +28,7 @@ const {
     requestBillDelete,
     rejectBillDelete,
 } = require('../controllers/billController');
+const { getReport, emailReport } = require('../controllers/posReportController');
 
 // All POS routes require an authenticated staff member (Admin or Manager).
 router.use(protect, staff);
@@ -68,5 +69,9 @@ router.put('/bills/:id/settle', settleBill);
 router.post('/bills/:id/request-delete', requestBillDelete);
 router.delete('/bills/:id', admin, deleteBill);
 router.put('/bills/:id/reject-delete', admin, rejectBillDelete);
+
+// ── Reports ──
+router.get('/report', getReport);
+router.post('/report/email', emailReport);
 
 module.exports = router;
