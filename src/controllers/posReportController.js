@@ -142,8 +142,24 @@ const emailReport = async (req, res, next) => {
             throw new Error('No recipient email available');
         }
         const report = await buildReport(from, to);
-        const subject = `Sales Report · ${new Date(from).toLocaleDateString('en-IN')} — ${new Date(to).toLocaleDateString('en-IN')}`;
-        await sendRawEmail(recipient, subject, reportHtml(report));
+        const rangeLabel = `${new Date(from).toLocaleDateString('en-IN')} — ${new Date(to).toLocaleDateString('en-IN')}`;
+        const subject = `Sales Report · ${rangeLabel}`;
+        const { pdfBase64, filename } = req.body;
+
+        if (pdfBase64) {
+            // Email the client-generated premium PDF as an attachment, with a short cover note.
+            const cover = `<div style="font-family:Arial,sans-serif;color:#222">
+              <h2 style="color:#ff5722">Haldia Cloud Kitchen — Sales Report</h2>
+              <p>Please find attached the sales report for <b>${rangeLabel}</b>.</p>
+              <p style="color:#888;font-size:13px">Offline (POS): Rs.${report.offline.totalSales.toFixed(2)} · ${report.offline.billCount} bills &nbsp;|&nbsp; Online: Rs.${report.online.totalSales.toFixed(2)}</p>
+            </div>`;
+            await sendRawEmail(recipient, subject, cover, [
+                { filename: filename || 'sales-report.pdf', content: Buffer.from(pdfBase64, 'base64') },
+            ]);
+        } else {
+            // Fallback: inline HTML report (no attachment).
+            await sendRawEmail(recipient, subject, reportHtml(report));
+        }
         res.json({ message: `Report emailed to ${recipient}` });
     } catch (error) {
         next(error);

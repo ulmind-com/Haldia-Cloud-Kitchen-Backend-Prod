@@ -69,16 +69,20 @@ const sendOtpEmail = async (email, otp) => {
   });
 };
 
-// ── Generic raw-HTML email (used for reports, etc.) ──
-const sendRawEmail = async (to, subject, html) => {
+// ── Generic raw-HTML email (used for reports, etc.), optional attachments ──
+const sendRawEmail = async (to, subject, html, attachments = []) => {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const { data, error } = await resend.emails.send({
+    const payload = {
       from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
       to,
       subject,
       html,
-    });
+    };
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      payload.attachments = attachments;
+    }
+    const { data, error } = await resend.emails.send(payload);
     if (error) {
       console.error(`Error sending raw email to ${to}:`, error);
       throw new Error(error.message || 'Email send failed');
